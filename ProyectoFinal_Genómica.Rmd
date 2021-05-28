@@ -1,0 +1,303 @@
+---
+title: "Quiero morir"
+author: "Yaolix & Edox"
+date: "26/5/2021"
+output: html_document
+---
+
+#Control & Fiebre
+
+Instalación de los paquetes. 
+```{r cars}
+BiocManager :: install ("affy")
+BiocManager :: install ("mouse4302cdf")
+BiocManager :: install ("pvclust")
+BiocManager :: install ("vsn")
+BiocManager :: install ("limma")
+BiocManager :: install ("Biobase")
+
+library("affy")
+library("mouse4302cdf")
+library("pvclust")
+library("vsn")
+library("Biobase")
+library("limma") 
+```
+
+## Primero cargamos los archivos. 
+Primero se asigno una dirección donde se encuentran los archivos.CEL, además también la tabla con las muestras que se van a utulizar, en este caso las control y las que tenían la fiebre típica del dengue. 
+```{r}
+getwd()
+setwd("6to semestre/Genómica/Proyecto final/Proyecto/Celulas") 
+getwd()
+list.files()
+
+pd <- read.table("pdata2.txt", header=TRUE, as.is=TRUE) 
+pd
+
+```
+
+
+##Converción a un archivo AffyData. 
+
+Aquí convertimos lo que es un archivo CEL en uno que sea affy. Aquí también se hace uso de la tabla pd, la que anteriormente contiene como esperamos que se almacenen los datos, usamos los nombres contenidos ahí. En pd estan contenidos los fenotipos y descripciones asociadas a las variables. Les asignamos los nombres a las samples y las cargamos. 
+```{r pressure, echo=FALSE}
+affyData <- ReadAffy(filenames = pd$filename)
+class(affyData)
+
+pData(affyData) <- pd
+sampleNames(affyData) = pd$name
+affyData
+
+```
+
+##Analisis de calidad.
+Estes es un boxplot que muestra la expresión de cada una de las muestras
+```{r pressure, echo=FALSE}
+boxplot(affyData, col=rainbow(6))
+```
+
+##Correlación de nuestras muestras.
+Muestra la correlación y cuales son las más parecidas entre ellas, mediante un heatmap.
+```{r pressure, echo=FALSE}
+heatmap(cor(exprs(affyData)), symm=T)
+```
+
+##Dendograma 
+Ns muestra cual las relaciones más cercanas de una manera más fácil. 
+```{r pressure, echo=FALSE}
+corClust = pvclust(exprs(affyData), nboot=1, method.dist="correlation")
+plot(corClust)
+
+```
+
+##Análisis de componentes
+Un análisis de componentes principales nos permite ver grupos entre las muestras ubicadas de diferente color.
+```{r pressure, echo=FALSE}
+pca <- princomp(exprs(affyData))
+plot(pca$loadings, main="Principal Component Analysis", col=rainbow(6),  pch=9, cex=2)
+text(pca$loadings, colnames(exprs(affyData)), pos=3, cex=0.6)
+```
+
+##Normalización
+La normalización es para evitar números negativos y para que nuestras muestras se ajusten a unos valores promedio. 
+```{r pressure, echo=FALSE}
+norman <- rma(affyData)
+normalize.AffyBatch.methods()
+```
+
+##Boxplot de la expresión normalizada. 
+Una buena estrategia de normalizado debe controlar la variabilidad a lo largo del rango de valores de expresión. Por ejemplo, no queremos que los genes altamente expresados cambien en promedio más que los genes de expresión media. Podemos revisar esto con la siguiente gráfica
+```{r pressure, echo=FALSE}
+boxplot(data.frame(exprs(norman)), col=rainbow(6))
+corClustAfter <- pvclust(exprs(norman), nboot=1, method.dist="correlation")
+plot(corClustAfter, main="EL NORMALIZADO")
+
+meanSdPlot(exprs(norman)) #Promedio de la expresión diferencial normalizada. 
+
+boxplot(data.frame(exprs(norman)), col="grey")
+```
+
+##Guardar la expresión normalizada
+Con este script ae guarda la expresión normalizada en la misma carpeta donde estan las muestras. 
+```{r pressure, echo=FALSE}
+write.exprs(norman, file="expr_normalizadaomg2.txt")
+save(norman,file="aa.Rdata")
+```
+
+se vuelve a leer el archivo generado anteriormente
+```{r pressure, echo=FALSE}
+try <- read.table("expr_normalizadaomg2.txt", header=TRUE, row.names=1)
+head(try)
+```
+
+##Cálculo de la expresión diferencial
+Primero asignamos los nombres de nuestro factores en un vector llamado types, estos son los que se quieren comprar dentro del diseño experimental.  También se hace el diseño experimental, donde se crea primero el diseño de nuestra matriz con las especificaciones dadas.  
+```{r pressure, echo=FALSE}
+types <- factor(c("Fev","Fev","Fev", "Fev", "Fev", "C", "C","C","C", "C"))
+types
+
+
+design <- model.matrix(~ 0+types)
+colnames(design) <- levels(types)
+design
+
+contMatrix <- makeContrasts(Fev-C, levels=design)
+contMatrix
+```
+
+
+Luego ajustamos nuestos datos de expresión a un modelo lineal, de ahí se calculan coeficientes estimados y errores estandar los cuales nos diran si son o no son significativos los datos. eBayes nos ordena los datos para saber cuál aumento en su expresión y cuál disminiyó. topTable nos permite tomar los 20 genes que cambiaron su expresión diferencial y finalmente lo colocamos en un volcano plot. 
+```{r pressure, echo=FALSE}
+fit  <- lmFit(try,design) 
+fit2 <- contrasts.fit(fit,contMatrix) 
+fit2 <- eBayes(fit2)
+
+topTable(fit2, number=20, sort.by="p")
+
+volcanoplot(fit2, highlight=10, names=fit2$genes$Gene.ID)
+
+```
+#Control y Fiebre Hemorragica. 
+## Primero cargamos los archivos. 
+
+```{r}
+pd <- read.table("pdata3.txt", header=TRUE, as.is=TRUE) #esta tabla se relizó en un archivo de texto. 
+pd
+
+```
+
+##Converción a un archivo AffyData. 
+
+```{r}
+affyData <- ReadAffy(filenames=pd$filename)
+class(affyData)
+
+pData(affyData) <- pd
+sampleNames(affyData) = pd$name
+affyData
+
+```
+
+##Analisis de calidad.
+
+```{r pressure, echo=FALSE}
+boxplot(affyData, col=rainbow(6))
+```
+
+##Correlación de nuestras muestras.
+```{r pressure, echo=FALSE}
+heatmap(cor(exprs(affyData)), symm=T)
+```
+
+##Dendograma 
+```{r pressure, echo=FALSE}
+corClust = pvclust(exprs(affyData), nboot=1, method.dist="correlation")
+plot(corClust)
+
+```
+
+##Analisis de componentes
+```{r pressure, echo=FALSE}
+pca <- princomp(exprs(affyData))
+plot(pca$loadings, main="Principal Component Analysis", col=rainbow(6),  pch=9, cex=2)
+text(pca$loadings, colnames(exprs(affyData)), pos=3, cex=0.6)
+```
+
+##Normalización 
+```{r pressure, echo=FALSE}
+norman <- rma(affyData)
+normalize.AffyBatch.methods()
+```
+
+##Boxplot de la expresión normalizada. 
+```{r pressure, echo=FALSE}
+boxplot(data.frame(exprs(norman)), col=rainbow(6))
+corClustAfter <- pvclust(exprs(norman), nboot=1, method.dist="correlation")
+plot(corClustAfter, main="EL NORMALIZADO")
+
+meanSdPlot(exprs(norman))
+
+boxplot(data.frame(exprs(norman)), col="grey")
+```
+
+##Guardar la expresión normalizada
+```{r pressure, echo=FALSE}
+write.exprs(norman, file="expr_normalizadaomg3.txt")
+save(norman,file="norman.Rdata")
+```
+
+```{r pressure, echo=FALSE}
+try <- read.table("expr_normalizadaomg3.txt", header=TRUE, row.names=1)
+head(try)
+```
+
+##Cálculo de la expresión diferencial
+```{r pressure, echo=FALSE}
+types <- factor(c("Fh","Fh","Fh", "Fh", "Fh", "C", "C","C","C", "C"))
+types
+
+
+design <- model.matrix(~ 0+types)
+colnames(design) <- levels(types)
+design
+
+contMatrix <- makeContrasts(Fh-C, levels=design)
+contMatrix
+```
+
+##Ajuste a un modelo lineal y volcano plot. 
+```{r pressure, echo=FALSE}
+fit  <- lmFit(try,design) #ajustar modelos lineales a nuestros datos de expresión
+fit2 <- contrasts.fit(fit,contMatrix) #coeficinetes estimados
+fit2 <- eBayes(fit2) #les das como un estimado que nos dira si son significativamente diferent
+
+topTable(fit2, number=20, sort.by="p")
+
+volcanoplot(fit2, highlight=10)
+```
+
+
+#Parte 2. Fácil.
+
+Tenemos una base de datos con la respuesta de 60 personas de 60 preguntas sobre gustos raros o preguntas X. Primero cargamos la librería igraph, luego se subió la base de datos. Todas las preguntas se respondían con sí o no
+```{r pressure, echo=FALSE}
+library(igraph)
+pla <- read.csv("6to semestre/Genómica/Proyecto final/Proyecto/a- a.csv")
+```
+
+Les dimos nombres a las filas. La volteamos y la convertimos en una matriz para que sea posible el análisis. 
+```{r pressure, echo=FALSE}
+rownames(pla)<-pla[,1]
+pla<-pla[,-1]
+pla<-t(as.matrix(pla))
+pla
+```
+
+Calculamos diferentes coeficientes de correlación de la base de datos para saber la relación de cada persona de acuerdo a sus gustazos. 
+```{r pressure, echo=FALSE}
+aa<-cor(pla[,-1], method="pearson") #calcular coeficiente de correclación
+bb <- cor(pla[,-1], method="kendall")
+cc <- cor(pla[,-1], method="spearman")
+```
+
+Finalmente realizamos la red de cada uno de los coeficientes de correlación para la futura identificación de clusters, de esta forma, se agruprían a las personas con mayor cantidad de respuestas en común
+```{r pressure, echo=FALSE}
+red1<-graph_from_adjacency_matrix(aa, mode="undirected", weighted=T)
+plot(red1)
+red2<-graph_from_adjacency_matrix(bb, mode="undirected", weighted=T)
+plot(red2)
+netw<-graph_from_adjacency_matrix(cc, mode="undirected", weighted=T)
+plot(netw)
+```
+Con base en los coeficientes de correlación, se establece un umbral que permitirá realizar los clusters, en este caso y con base en los resultados de correlación, se delimitó a 0.1 
+```{r pressure, echo=FALSE}
+diag(aa) <- 0
+umbral <- 0.1
+ad <- ifelse(aa > umbral, 0,1)
+View(ad)
+```
+
+
+Se crean las redes con base en el umbral seleccionado y distintos métodos de clusterización
+```{r pressure, echo=FALSE}
+red3<-graph_from_adjacency_matrix(ad, mode="undirected")
+red3
+
+clust1<- label.propagation.community(red3)
+clust1
+plot (clust1,red3)
+
+clust2<- cluster_edge_betweenness(red3)
+clust2
+plot(clust2,red3)
+
+clust3<-cluster_walktrap(red3)
+clust3
+plot(clust3,red3)
+
+clust4<- leading.eigenvector.community(red3) #este es el bueno. 
+clust4
+plot(clust4,red3)
+```
+
