@@ -1,0 +1,237 @@
+---
+title: "Proyecto Final Genómica"
+author: "Yaolix & Edox"
+date: "25/5/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Este es nuestro proyecto final parte 1. 
+
+Instalación de los paquetes. 
+```{r cars}
+BiocManager :: install ("affy")
+BiocManager :: install ("mouse4302cdf")
+BiocManager :: install ("pvclust")
+BiocManager :: install ("vsn")
+BiocManager :: install ("limma")
+BiocManager :: install ("Biobase")
+
+library("affy")
+library("mouse4302cdf")
+library("pvclust")
+library("vsn")
+library("Biobase")
+library("limma") 
+```
+
+## Primero cargamos los archivos. 
+
+```{r}
+setwd("~/Bioinfo/PINCHE FD1-20210525T234124Z-001/PINCHE FD1/") #dirección 
+getwd()
+list.files()
+
+pd <- read.table("pdata3.txt", header=TRUE, as.is=TRUE) #esta tabla se relizó en un archivo de texto. 
+pd
+
+```
+
+
+#Converción a un archivo AffyData. 
+
+```{r}
+affyData <- ReadAffy(filenames=pd$filename)
+class(affyData)
+
+pData(affyData) <- pd
+sampleNames(affyData) = pd$name
+affyData
+
+```
+
+##Analisis de calidad.
+
+```{r pressure, echo=FALSE}
+boxplot(affyData, col=rainbow(6))
+```
+
+##Correlación de nuestras muestras.
+```{r pressure, echo=FALSE}
+heatmap(cor(exprs(affyData)), symm=T)
+```
+
+##Dendograma 
+```{r pressure, echo=FALSE}
+corClust = pvclust(exprs(affyData), nboot=1, method.dist="correlation")
+plot(corClust)
+
+```
+
+#Analisis de componentes
+```{r pressure, echo=FALSE}
+pca <- princomp(exprs(affyData))
+plot(pca$loadings, main="Principal Component Analysis", col=rainbow(6),  pch=9, cex=2)
+text(pca$loadings, colnames(exprs(affyData)), pos=3, cex=0.6)
+```
+
+##Normalización 
+```{r pressure, echo=FALSE}
+norman <- rma(affyData)
+normalize.AffyBatch.methods()
+```
+
+##Boxplot de la expresión normalizada. 
+```{r pressure, echo=FALSE}
+boxplot(data.frame(exprs(norman)), col=rainbow(6))
+corClustAfter <- pvclust(exprs(norman), nboot=1, method.dist="correlation")
+plot(corClustAfter, main="EL NORMALIZADO")
+
+meanSdPlot(exprs(norman))
+
+boxplot(data.frame(exprs(norman)), col="grey")
+```
+
+##Guardar la expresión normalizada
+```{r pressure, echo=FALSE}
+write.exprs(norman, file="expr_normalizadaomg3.txt")
+save(norman,file="norman.Rdata")
+```
+
+```{r pressure, echo=FALSE}
+try <- read.table("expr_normalizadaomg3.txt", header=TRUE, row.names=1)
+head(try)
+```
+
+##Cálculo de la expresión diferencial
+```{r pressure, echo=FALSE}
+types <- factor(c("Fh","Fh","Fh", "Fh", "Fh", "C", "C","C","C", "C"))
+types
+
+
+design <- model.matrix(~ 0+types)
+colnames(design) <- levels(types)
+design
+
+contMatrix <- makeContrasts(Fh-C, levels=design)
+contMatrix
+```
+
+#Ajuste a un modelo lineal y volcano plot. 
+```{r pressure, echo=FALSE}
+fit  <- lmFit(try,design) #ajustar modelos lineales a nuestros datos de expresión
+fit2 <- contrasts.fit(fit,contMatrix) #coeficinetes estimados
+fit2 <- eBayes(fit2) #les das como un estimado que nos dira si son significativamente diferent
+
+topTable(fit2, number=20, sort.by="p")
+
+volcanoplot(fit2, highlight=10)
+```
+
+#Parte 2. Fácil ehhhh
+```{r pressure, echo=FALSE}
+library(igraph)
+pla <- read.csv("C:/Users/edo_d//Downloads/a - a (3).csv")
+```
+
+```{r pressure, echo=FALSE}
+rownames(pla)<-pla[,1]
+pla<-pla[,-1]
+pla<-t(as.matrix(pla))
+pla
+```
+
+```{r pressure, echo=FALSE}
+aa<-cor(pla[,-1], method="pearson") #calcular coeficiente de correclación
+bb <- cor(pla[,-1], method="kendall")
+cc <- cor(pla[,-1], method="spearman")
+```
+
+```{r pressure, echo=FALSE}
+red1<-graph_from_adjacency_matrix(aa, mode="undirected", weighted=T)
+plot(red1)
+red2<-graph_from_adjacency_matrix(bb, mode="undirected", weighted=T)
+plot(red2)
+netw<-graph_from_adjacency_matrix(cc, mode="undirected", weighted=T)
+plot(netw)
+```
+
+```{r pressure, echo=FALSE}
+diag(aa) <- 0
+umbral <- 0.1
+ad <- ifelse(aa > umbral, 0,1)
+View(ad)
+```
+
+```{r pressure, echo=FALSE}
+red3<-graph_from_adjacency_matrix(ad, mode="undirected")
+red3
+
+clust1<- label.propagation.community(red3)
+clust1
+plot (clust1,red3)
+
+clust2<- cluster_edge_betweenness(red3)
+clust2
+plot(clust2,red3)
+
+clust3<-cluster_walktrap(red3)
+clust3
+plot(clust3,red3)
+
+clust4<- leading.eigenvector.community(red3) #este es el bueno. 
+clust4
+plot(clust4,red3)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

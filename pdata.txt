@@ -1,0 +1,12 @@
+filename	cell	type	name
+C1.cel		er	C	C1 
+C2.cel		er	C	C2
+C3.cel		er	C	C3
+C4.cel		er	C	C4
+C5.cel		er	C	C5
+COV1.cel	er	Cov	Cov1
+COV2.cel	er	Cov	Cov2
+COV3.cel	er	Cov	Cov3
+COV4.cel	er	Cov	Cov4
+COV5.cel	er	Cov	Cov5
+
